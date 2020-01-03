@@ -1,11 +1,9 @@
 __constant double earth_radius = $earth_radius;
 __constant double atmos_height = $atmos_height;
 
-__constant double rayleigh_atmos_height = $rayleigh_atmos_height;
-__constant double mie_atmos_height      = $mie_atmos_height;
-
 __constant double3 rayleigh_beta = (double3)$rayleigh_beta;
 __constant double3 mie_beta = (double3)$mie_beta;
+__constant double  mie_g = $mie_g;
 
 __constant int ray_samples   = $ray_samples;
 __constant int light_samples = $light_samples;
@@ -20,7 +18,7 @@ double altitude(double3 pos) {
 	return length(pos) - earth_radius;
 }
 
-// solve x^2 + px + q
+/// Solve x^2 + px + q
 bool solvePolynomialOfDegreeTwo(double p, double q, double* x1, double* x2) {
 	const double pHalf = 0.5*p;
 	const double inner = pHalf*pHalf - q;
@@ -34,7 +32,7 @@ bool solvePolynomialOfDegreeTwo(double p, double q, double* x1, double* x2) {
 	}
 }
 
-// interection of origin + d*dir and a sphere of radius r for normalized dir
+/// Interection of origin + d*dir and a sphere of radius r for normalized dir
 bool solveRaySphereIntersection(double3 origin, double3 dir, double r, double* d0, double* d1) {
 	const double p = 2 * dot(dir,origin);
 	const double q = dot(origin,origin) - r*r;
@@ -51,6 +49,7 @@ bool solveRaySphereIntersection(double3 origin, double3 dir, double r, double* d
 	}
 }
 
+/// Map {0,...,screenX}x{0,...,screenY} to [-1,1]^2
 double2 getNormalizedScreenPos(double x, double y) {
 	return (double2)(
 		2.0 * (x / $size_x - 0.5) * $size_x.0 / $size_y.0,
@@ -58,26 +57,44 @@ double2 getNormalizedScreenPos(double x, double y) {
 	);
 }
 
+/// Pinhole camera
 double3 getEyeRayDir(double2 screen_pos, double3 eye_pos, double3 eye_target) {
 	const double3 forward = normalize(eye_target - eye_pos);
 	const double3 right   = normalize(cross((double3)(0.0, 0.0, 1.0), forward));
 	const double3 up      = normalize(cross(forward, right));
 
-	return normalize(screen_pos.x*right + screen_pos.y*up + 1.5*forward);
+	return normalize(screen_pos.x*right + screen_pos.y*up + $zoom*forward);
 }
 
+/// Return true iff earth is hit by rays along dir
 bool isVisible(double3 origin, double3 dir) {
 	double e0, e1;
 	return !solveRaySphereIntersection(origin, dir, earth_radius, &e0, &e1)
 	    || (e0 < 0 && e1 < 0);
 }
 
+/// Return distance between entering and exiting the atmosphere
 double lengthOfRayInAtmosphere(double3 origin, double3 dir) {
 	double d0, d1;
 	solveRaySphereIntersection(origin, dir, earth_radius + atmos_height, &d0, &d1);
 	return d1 - d0;
 }
 
+/// Return light depths of secondary rays
+double2 lightDepth(double3 curr, double3 sun) {
+	const double h = lengthOfRayInAtmosphere(curr, sun) / light_samples;
+
+	double2 depth = 0.0;
+
+	for (unsigned i = 0; i < light_samples; ++i) {
+		const double height = altitude(curr + (i+0.5)*h*sun);
+		depth += exp(-height / (double2)($rayleigh_atmos_height, $mie_atmos_height)) * h;
+	}
+
+	return depth;
+}
+
+/// Calculate color of light along ray
 double3 scatter(double3 origin, double3 dir, double dist, double3 sun) {
 	double3 rayleigh_sum = 0.0;
 	double3 mie_sum      = 0.0;
@@ -87,32 +104,22 @@ double3 scatter(double3 origin, double3 dir, double dist, double3 sun) {
 
 	const double h = dist / ray_samples;
 
-	for (int i = 0; i < ray_samples; ++i) {
+	for (unsigned i = 0; i < ray_samples; ++i) {
 		double3 curr = origin + (i+0.5)*h*dir;
 
 		if (isVisible(curr, sun)) {
-			double height = altitude(curr);
+			const double height = altitude(curr);
 
-			double rayleigh_h = exp(-height / rayleigh_atmos_height) * h;
-			double mie_h      = exp(-height / mie_atmos_height) * h;
+			const double rayleigh_h = exp(-height / $rayleigh_atmos_height) * h;
+			const double mie_h      = exp(-height / $mie_atmos_height) * h;
 
 			rayleigh_depth += rayleigh_h;
 			mie_depth      += mie_h;
 
-			double light_h = lengthOfRayInAtmosphere(curr, sun) / light_samples;
-
-			double rayleigh_light_depth = 0;
-			double mie_light_depth = 0;
-
-			for (int j = 0; j < light_samples; ++j) {
-				height = altitude(curr + (j+0.5)*light_h*sun);
-
-				rayleigh_light_depth += exp(-height / rayleigh_atmos_height) * light_h;
-				mie_light_depth += exp(-height / mie_atmos_height) * light_h;
-			}
-
-			double3 tau = rayleigh_beta*(rayleigh_depth+rayleigh_light_depth) + mie_beta*(mie_depth+ mie_light_depth);
-			double3 attenuation = exp(-tau);
+			const double2 light_depth = lightDepth(curr, sun);
+			const double3 tau = rayleigh_beta * (rayleigh_depth + light_depth[0])
+			                  + mie_beta      * (mie_depth      + light_depth[1]);
+			const double3 attenuation = exp(-tau);
 
 			rayleigh_sum += attenuation * rayleigh_h;
 			mie_sum      += attenuation * mie_h;
@@ -120,9 +127,10 @@ double3 scatter(double3 origin, double3 dir, double dist, double3 sun) {
 	}
 
 	const double mu = dot(dir,sun);
-	const double rayleigh_phase = 3. / (16.*M_PI) * (1.0 + mu*mu);
-	const double g = 0.8;
-	const double mie_phase = 3. / (8.*M_PI) * ((1. - g*g) * (1. + mu*mu)) / ((2. + g*g) * pow(1. + g*g - 2.*g*mu, 1.5));
+
+	const double rayleigh_phase = 3./(16.*M_PI) * (1.0 + mu*mu);
+	const double mie_phase = (3.*(1. - mie_g*mie_g)) / (2.*(2. + mie_g*mie_g)) * (1. + mu*mu) / pow(1. + mie_g*mie_g - 2.*mie_g*mu, 1.5);
+	//const double mie_phase = (1-mie_g*mie_g) / (4*M_PI*pow(1+mie_g*mie_g-2*mie_g*mu,1.5));
 
 	return rayleigh_sum*rayleigh_beta*rayleigh_phase + mie_sum*mie_beta*mie_phase;
 }
@@ -134,9 +142,6 @@ void setColor(__global double* result, unsigned x, unsigned y, double3 color) {
 }
 
 __kernel void render(__global double* result, double3 eye_pos, double3 eye_dir, double3 sun) {
-	eye_pos *= earth_radius;
-	eye_dir *= earth_radius;
-
 	const unsigned x = get_global_id(0);
 	const unsigned y = get_global_id(1);
 
