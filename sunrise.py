@@ -16,7 +16,7 @@ config = {
     'ray_samples'  : 32,
     'light_samples': 8,
 
-    'exposure': 20.0,
+    'exposure': 2.0,
     'zoom':     1.0,
 
     'eye_pos': numpy.array([0, 0, 1.0001]),

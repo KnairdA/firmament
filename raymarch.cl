@@ -128,9 +128,8 @@ double3 scatter(double3 origin, double3 dir, double dist, double3 sun) {
 
 	const double mu = dot(dir,sun);
 
-	const double rayleigh_phase = 3./(16.*M_PI) * (1.0 + mu*mu);
-	const double mie_phase = (3.*(1. - mie_g*mie_g)) / (2.*(2. + mie_g*mie_g)) * (1. + mu*mu) / pow(1. + mie_g*mie_g - 2.*mie_g*mu, 1.5);
-	//const double mie_phase = (1-mie_g*mie_g) / (4*M_PI*pow(1+mie_g*mie_g-2*mie_g*mu,1.5));
+	const double rayleigh_phase = 0.75 * (1.0 + mu*mu);
+	const double mie_phase = 0.5*(1-mie_g*mie_g)/pow(1+mie_g*mie_g-2*mie_g*mu,1.5);
 
 	return rayleigh_sum*rayleigh_beta*rayleigh_phase + mie_sum*mie_beta*mie_phase;
 }
