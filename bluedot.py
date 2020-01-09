@@ -16,14 +16,14 @@ config = {
     'ray_samples':   16,
     'light_samples': 8,
 
-    'exposure': 20.0,
-    'zoom':     2.0,
+    'exposure': 2.0,
+    'zoom':     2.5,
 
     'eye_pos': numpy.array([0, -3, 1.1]),
     'eye_dir': numpy.array([0, 1, -0.35])
 }
 
-sun_range = (0, 360, 1)
+sun_range = (0, 360, 10)
 
 cl_platform = cl.get_platforms()[0]
 cl_context = cl.Context(properties=[(cl.context_properties.PLATFORM, cl_platform)])
