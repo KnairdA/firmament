@@ -117,8 +117,8 @@ double3 scatter(double3 origin, double3 dir, double dist, double3 sun) {
 			mie_depth      += mie_h;
 
 			const double2 light_depth = lightDepth(curr, sun);
-			const double3 tau = rayleigh_beta * (rayleigh_depth + light_depth[0])
-			                  + mie_beta      * (mie_depth      + light_depth[1]);
+			const double3 tau = rayleigh_beta * (rayleigh_depth + light_depth.x)
+			                  + mie_beta      * (mie_depth      + light_depth.y);
 			const double3 attenuation = exp(-tau);
 
 			rayleigh_sum += attenuation * rayleigh_h;
