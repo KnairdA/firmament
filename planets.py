@@ -5,7 +5,7 @@ earth = {
     'rayleigh_atmos_height': 7994,
     'mie_atmos_height'     : 1200,
 
-    'rayleigh_beta': (5.196e-6, 12.142e-6, 29.645e-6),
+    'rayleigh_beta': (5.4717e-6, 12.7853e-6, 31.2142e-6),
     'mie_beta'     : (21e-6),
     'mie_g'        : 0.75
 }
