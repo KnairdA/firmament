@@ -43,7 +43,7 @@ for i in numpy.arange(*sun_range):
     sun = make_double3(0.0,numpy.cos(i*2*numpy.pi/360),numpy.sin(i*2*numpy.pi/360))
     print(sun)
 
-    program.render(
+    program.render_pinhole(
         cl_queue, (config['size_x'], config['size_y']), None, cl_picture,
         make_double3(*(config['eye_pos'] * earth['earth_radius'])),
         make_double3(*(config['eye_dir'] * earth['earth_radius'])),

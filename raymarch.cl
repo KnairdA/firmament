@@ -189,7 +189,7 @@ __kernel void render_fisheye(__global double* result, double3 eye_pos, double3 e
 	const double2 screen_pos = getNormalizedScreenPos(x, y);
 
 	if (!inFishEyeView(screen_pos)) {
-		setColor(result, x, y, 0.0);
+		setColor(result, x, y, 1.0);
 		return;
 	}
 
