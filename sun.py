@@ -27,6 +27,6 @@ def sun_direction(lat, lon, time, time_diff, summertime_shift = 0):
     azimuth  = np.arccos((np.cos(d) * np.sin(l) * np.cos(h) - np.sin(d) * np.cos(l)) / np.cos(altitude))
 
     if h < 0:
-        return (altitude, -azimuth)
-    else:
         return (altitude,  azimuth)
+    else:
+        return (altitude, -azimuth)

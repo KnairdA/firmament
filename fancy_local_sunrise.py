@@ -76,11 +76,12 @@ for time in np.arange(*time_range):
     ax_polar = fig.add_axes([0.0, 0.0, 1.0, 1.0], projection='polar', label='Overlay')
     ax_polar.patch.set_alpha(0)
     ax_polar.set_theta_zero_location('N')
+    ax_polar.set_theta_direction(-1)
     ax_polar.set_rlim(bottom=90, top=0)
     yticks = [0, 15, 30, 45, 60, 75, 90]
     ax_polar.set_yticks(yticks)
     ax_polar.set_yticklabels(['' if i == 90 else '%d°' % i for i in yticks], color='white', fontsize=6)
-    ax_polar.set_rlabel_position(-90/4)
+    ax_polar.set_rlabel_position(90/4)
     ax_polar.set_xticklabels(['N', 'NW', 'W', 'SW', 'S', 'SE', 'E', 'NE'])
     ax_polar.grid(True)
 

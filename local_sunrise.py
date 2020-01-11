@@ -12,7 +12,7 @@ from planets import earth
 from sun import sun_direction
 from datetime import datetime
 
-fish_eye = True
+fish_eye = False
 
 config = {
     'size_x': 1000 if fish_eye else 1920//4,
