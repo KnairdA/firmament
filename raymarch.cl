@@ -52,18 +52,29 @@ bool solveRaySphereIntersection(double3 origin, double3 dir, double r, double* d
 /// Map {0,...,screenX}x{0,...,screenY} to [-1,1]^2
 double2 getNormalizedScreenPos(double x, double y) {
 	return (double2)(
-		2.0 * (x / $size_x - 0.5) * $size_x.0 / $size_y.0,
-		2.0 * (y / $size_y - 0.5)
+		2.0 * (0.5 - x / $size_x) * $size_x.0 / $size_y.0,
+		2.0 * (0.5 - y / $size_y)
 	);
 }
 
 /// Pinhole camera
 double3 getEyeRayDir(double2 screen_pos, double3 eye_pos, double3 eye_target) {
 	const double3 forward = normalize(eye_target - eye_pos);
-	const double3 right   = normalize(cross((double3)(0.0, 0.0, 1.0), forward));
+	const double3 right   = normalize(cross((double3)(0.0, 0.0, -1.0), forward));
 	const double3 up      = normalize(cross(forward, right));
 
 	return normalize(screen_pos.x*right + screen_pos.y*up + $zoom*forward);
+}
+
+/// Fisheye camera
+bool inFishEyeView(double2 screen_pos) {
+	return length(screen_pos) <= 1.0;
+}
+
+double3 getFishEyeRayDir(double2 screen_pos) {
+	const double phi   = atan2(screen_pos.y, screen_pos.x);
+	const double theta = acos(1.0 - (screen_pos.x*screen_pos.x + screen_pos.y*screen_pos.y));
+	return (double3)(sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta));
 }
 
 /// Return true iff earth is hit by rays along dir
@@ -140,16 +151,9 @@ void setColor(__global double* result, unsigned x, unsigned y, double3 color) {
 	result[3*$size_x*y + 3*x + 2] = color.z;
 }
 
-__kernel void render(__global double* result, double3 eye_pos, double3 eye_dir, double3 sun) {
-	const unsigned x = get_global_id(0);
-	const unsigned y = get_global_id(1);
-
-	double2 screen_pos = getNormalizedScreenPos(x, y);
-	double3 ray_dir = getEyeRayDir(screen_pos, eye_pos, eye_pos + eye_dir);
-
+void render(__global double* result, unsigned x, unsigned y, double3 origin, double3 ray_dir, double3 sun) {
 	double d0, d1;
-
-	if (!solveRaySphereIntersection(eye_pos, ray_dir, earth_radius + atmos_height, &d0, &d1)) {
+	if (!solveRaySphereIntersection(origin, ray_dir, earth_radius + atmos_height, &d0, &d1)) {
 		setColor(result, x, y, 0.0);
 		return;
 	}
@@ -157,23 +161,49 @@ __kernel void render(__global double* result, double3 eye_pos, double3 eye_dir, 
 	double min_dist = d0;
 	double max_dist = d1;
 
-	if (insideAtmosphere(eye_pos)) {
+	if (insideAtmosphere(origin)) {
 		min_dist = 0.0;
 
-		if (solveRaySphereIntersection(eye_pos, ray_dir, earth_radius, &d0, &d1) && d1 > 0) {
+		if (solveRaySphereIntersection(origin, ray_dir, earth_radius, &d0, &d1) && d1 > 0) {
 			max_dist = max(0.0, d0);
 		}
 	} else {
-		if (solveRaySphereIntersection(eye_pos, ray_dir, earth_radius, &d0, &d1)) {
+		if (solveRaySphereIntersection(origin, ray_dir, earth_radius, &d0, &d1)) {
 			max_dist = d0;
 		}
 	}
 
-	const double3 ray_origin = eye_pos + min_dist*ray_dir;
+	const double3 ray_origin = origin + min_dist*ray_dir;
 	const double  ray_length = max_dist - min_dist;
 
 	double3 color = scatter(ray_origin, ray_dir, ray_length, normalize(sun));
 	color = 1.0 - exp(-exposure * color);
 
 	setColor(result, x, y, color);
+}
+
+__kernel void render_fisheye(__global double* result, double3 eye_pos, double3 eye_dir, double3 sun) {
+	const unsigned x = get_global_id(0);
+	const unsigned y = get_global_id(1);
+
+	const double2 screen_pos = getNormalizedScreenPos(x, y);
+
+	if (!inFishEyeView(screen_pos)) {
+		setColor(result, x, y, 0.0);
+		return;
+	}
+
+	const double3 ray_dir = getFishEyeRayDir(screen_pos);
+
+	render(result, x, y, eye_pos, ray_dir, sun);
+}
+
+__kernel void render_pinhole(__global double* result, double3 eye_pos, double3 eye_dir, double3 sun) {
+	const unsigned x = get_global_id(0);
+	const unsigned y = get_global_id(1);
+
+	const double2 screen_pos = getNormalizedScreenPos(x, y);
+	const double3 ray_dir = getEyeRayDir(screen_pos, eye_pos, eye_pos + eye_dir);
+
+	render(result, x, y, eye_pos, ray_dir, sun);
 }

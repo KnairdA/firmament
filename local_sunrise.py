@@ -12,20 +12,22 @@ from planets import earth
 from sun import sun_direction
 from datetime import datetime
 
+fish_eye = True
+
 config = {
-    'size_x': 1920//4,
-    'size_y': 1080//4,
+    'size_x': 1000 if fish_eye else 1920//4,
+    'size_y': 1000 if fish_eye else 1080//4,
 
     'ray_samples'  : 16,
     'light_samples': 8,
 
-    'exposure': 2.0,
-    'zoom':     1.0,
+    'exposure': 4.0,
+    'zoom':     1.0, # only for pinhole view
 
     'eye_pos': np.array([0, 0, 1.0001]),
-    'eye_dir': np.array([0, 1, 0]),
+    'eye_dir': np.array([0, 1, 0]), # only for pinhole view
 
-    'date': (2020, 1, 10),
+    'date': (2020, 1, 20),
     'latitude': 49.01,
     'longitude': 8.4
 }
@@ -49,13 +51,13 @@ for time in np.arange(*time_range):
     sun_dir = sun_direction(config['latitude'], config['longitude'], pit, 1.0)
 
     sun = make_double3(
-        np.sin(sun_dir[1])*np.cos(sun_dir[0]),
-        np.cos(sun_dir[1])*np.cos(sun_dir[0]),
+        np.cos(sun_dir[0])*np.sin(sun_dir[1]),
+        np.cos(sun_dir[0])*np.cos(sun_dir[1]),
         np.sin(sun_dir[0])
     )
     print(sun_dir)
 
-    program.render(
+    (program.render_fisheye if fish_eye else program.render_pinhole)(
         cl_queue, (config['size_x'], config['size_y']), None, cl_picture,
         make_double3(*(config['eye_pos'] * earth['earth_radius'])),
         make_double3(*(config['eye_dir'] * earth['earth_radius'])),
