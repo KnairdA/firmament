@@ -19,7 +19,7 @@ config = {
     'ray_samples'  : 16,
     'light_samples': 8,
 
-    'exposure': 2.0,
+    'exposure': 3.0,
     'zoom':     1.0, # only for pinhole view
 
     'eye_pos': np.array([0, 0, 1.0001]),
@@ -33,7 +33,7 @@ config = {
     'longitude': 8.40444
 }
 
-time_range = (6, 20, 0.5)
+time_range = (6, 20, 1)
 
 cl_platform = cl.get_platforms()[0]
 cl_context = cl.Context(properties=[(cl.context_properties.PLATFORM, cl_platform)])
@@ -72,6 +72,7 @@ for time in np.arange(*time_range):
     ax_image = fig.add_axes([0.0, 0.0, 1.0, 1.0], label='Sky')
     ax_image.imshow(np_picture, origin='lower')
     ax_image.axis('off')
+    ax_image.text(-50, -50, pit)
 
     ax_polar = fig.add_axes([0.0, 0.0, 1.0, 1.0], projection='polar', label='Overlay')
     ax_polar.patch.set_alpha(0)
