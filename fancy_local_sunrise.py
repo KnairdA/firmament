@@ -83,6 +83,7 @@ for time in np.arange(*time_range):
     ax_polar.set_yticklabels(['' if i == 90 else '%d°' % i for i in yticks], color='white', fontsize=6)
     ax_polar.set_rlabel_position(90/4)
     ax_polar.set_xticklabels(['N', 'NW', 'W', 'SW', 'S', 'SE', 'E', 'NE'])
+    ax_polar.scatter(np.pi + sun_dir[1], np.degrees(sun_dir[0]), c='yellow', marker='*')
     ax_polar.grid(True)
 
     plt.savefig("sky_%05.1f.png" % time, bbox_inches='tight', pad_inches=0.2)
